@@ -1,0 +1,6 @@
+Great American Novel
+by Boris Paskhaver
+
+Chapter 1
+Once upon a time...I'm creating this from Ruby!
+No line break here!Pretty cool!
