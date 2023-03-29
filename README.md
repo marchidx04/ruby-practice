@@ -656,6 +656,94 @@ eg.use_proc(99) # The parameter is 99
   - 많은 루비 프로그래머들이 이러한 방식으로 블록을 변수에 저장하며 이후에 다시 호출한다.
 - 루비에서는 블록을 객체로 변환하는 내장 메서드를 두 가지 `lambda`와 `Proc.new` 두 가지를 지원한다.
 
+### 블록은 클로저
+
+#### 매개변수를 참조하는 Proc 객체
+
+```rb
+def n_times(thing)
+ lambda { |n| thing * n }
+end
+
+p1 = n_times(23)
+p1.call(3) # 69
+p1.call(4) # 92
+p2 = n_times("Hello ")
+p2.call(2) # "Hello Hello "
+```
+
+- `n_times` 메서드는 매개변수 `thing`을 참조하는 Proc 객체를 반환한다.
+  - 이 Proc 객체만이 thing에 접근할 수 있어 이를 `클로저`라고 한다.
+
+#### 2의 제곱열을 반환하는 Proc 객체
+
+```rb
+def power_proc_generator
+  value = 1
+  lambda { value += value }
+end
+
+power_proc = power_proc_generator
+power_proc2 = power_proc_generator
+
+puts power_proc.call # 2
+puts power_proc.call # 4
+puts power_proc.call # 8
+puts power_proc2.call # 2
+```
+
+- `power_proc`와 `power_proc2`는 다른 블록을 가지고 있으므로 같은 value를 참조하고 있지 않다.
+
+### 대체 문법
+
+```rb
+def my_if(condition, then_clause, else_clause)
+  if condition
+    then_clause.call
+  else
+    else_clause.call
+  end
+end
+
+5.times do |val|
+  my_if val < 2,
+    -> { puts "#{val} is small" },
+    -> { puts "#{val} is big" }
+end
+
+# 0 is small
+# 1 is small
+# 2 is big
+# 3 is big
+# 4 is big
+```
+
+- lambda 문법을 보다 간결하게 작성할 수 있도록 `->` 형식을 지원한다.
+
+#### 대체 문법 예제
+
+```rb
+proc1 = lamba do |a, *b, &block|
+  puts "a = #{a.inspect}"
+  puts "b = #{b.inspect}"
+  block.call
+end
+
+proc1.cal(1, 2, 3, 4) { puts "in block1" }
+
+proc1 = -> a, *b, &block do
+  puts "a = #{a.inspect}"
+  puts "b = #{b.inspect}"
+  block.call
+end
+
+proc1.cal(1, 2, 3, 4) { puts "in block2" }
+
+# a = 1
+# b = [2, 3, 4]
+# in block2
+```
+
 ---
 ---
 ---
