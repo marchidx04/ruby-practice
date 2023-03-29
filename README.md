@@ -1,6 +1,6 @@
 # Ruby
 
-## What is Ruby?
+## 1. Ruby?
 
 ### Ruby
 
@@ -66,7 +66,7 @@ Greeting.hello # Hello World
 ```
 
 
-### 루비 시작하기
+## 2. 루비 시작하기
 
 #### 화면에 텍스트 출력하는 메서드
 
@@ -146,7 +146,65 @@ p nil.to_i # 0
   }
   ```
 
-## 클래스, 객체, 변수
+### 블록과 반복자
+
+#### 한 줄의 코드 블록
+
+```rb
+{ puts "Hello" }
+```
+
+#### 여러 줄의 블록
+
+```rb
+do
+  club.enroll(person)
+  person.socialize
+end
+
+# 메서드에 매개 변수가 있다면, 블록보다 앞에 써 준다.
+verbose_greet("Dave", "loyal customer") { puts "Hi" }
+```
+
+#### yield를 포함하는 메서드
+
+```rb
+def call_block
+  puts "Start of method"
+  yield
+  yield
+  puts "End of method"
+end
+
+call_block { puts "Inthe block" }
+
+# 실행 결과
+# Start of method
+# In the block
+# In th e block
+# End of method
+```
+
+```rb
+def who_says_what
+  yield("Dave", "hello")
+  yield("Andy", "goodbye")
+end
+
+who_says_what {|person, phrase| puts "#{person} says #{phrase}" }
+```
+
+### 반복자
+
+- 루비에는 코드 블록을 반복자(iterator) 구현에 사용하기도 한다.
+  - 반복자란 배열 등의 집합에서 구성 요소를 하나씩 반환해 주는 함수를 의미
+
+```rb
+animals =  %w( ant bee cat dog ) # 배열을 하나 만든다
+animals.each {|animal| puts animal } # 배열의 내용을 반복한다.
+```
+
+## 3. 클래스, 객체, 변수
 
 - 루비에서 다루는 모든 것은 객체다.
   - 객체 지향 시스템을 설계할 떄 항상 제일 먼저 해야하는 일은 다루고자 하는 대상들의 특징을 파악하는 것.
@@ -170,8 +228,433 @@ p nil.to_i # 0
   - 새로운 객체를 만들기 위해 `BookInStock.new`를 호출하면 루비는 초기화되지 않은 객체를 메모리에 할당하고 new의 매개변수를 이용해 그 객체의 `initialize` 메서드를 호출한다. 즉, 객체의 상태를 초기화한다.
   - `@`는 인스턴스 변수를 선언할 때 사용한다.
 
+### p와 puts 비교
 
+```rb
+p BookInStock.new("isbn1", 3) # #<BookInStock:0x0000029e08a426c8 @isbn="isbn1", @price=3.0>
+puts BookInStock.new("isbn2", "3.14") # #<BookInStock:0x0000029e08a41c78>
+```
 
+- p 매서드는 객체의 내부 상태를 출력한다.
+- puts는 단순히 프로그램의 표준 출력에 문자열을 출력한다.
+- 루비는 객체를 문자열로 나타내는 표준 메서드인 `to_s`가 준비되어 있다.
+
+```rb
+class BookInStock
+  def initialize(isbn, price)
+    @isbn = isbn
+    @price = Float(price)
+  end
+
+  def to_s
+    "ISBN: #{@isbn}, price: #{@price}"
+  end
+end
+
+p BookInStock.new("isbn1", 3) # #<BookInStock:0x0000029e08a426c8 @isbn="isbn1", @price=3.0>
+puts BookInStock.new("isbn2", "3.14") # ISBN: isbn2, price: 3.14
+```
+  - 인스턴스 변수들은 각 객체에 저장되며 이 객체에 정의되는 모든 인스턴스 메서드에서 참조 가능하다.
+  
+### 객체와 속성
+
+- BookInStock 객체는 ISBN, 가격을 포함한 객체 내부적인 상태를 가지고 있다.
+  - 이러한 객체의 내부 상태는 각 객체 내부에 저장된 정보로 다른 객체에서는 이 정보에 접근할 수 없다.
+- BookInStock 객체에 대해 외부에서 찾을 수 있도록 구현하는 방법 중 하나는 접근자 메서드를 직접 구현하는 것이다.
+
+```rb
+class BookInStock
+  def initialize(isbn, price)
+    @isbn = isbn
+    @price = Float(price)
+  end
+
+  def isbn
+    @isbn
+  end
+  def price
+    @price
+  end
+end
+```
+
+- 접근자 메서드는 매우 자주 사용되므로, 루비는 이를 쉽게 정의해 주는 편의메서드를 제공한다.
+
+```rb
+class BookInStock
+  attr_reader :isbn, :price
+
+  def initialize(isbn, price)
+    @isbn = isbn
+    @price = Float(price)
+  end
+end
+```
+
+### 쓰기 가능한 속성
+
+객체 밖에서 속성을 설정해야하는 경우도 있다. 루비에서는 메서드 이름 뒤에 `=` 기호를 사용해 접근 가능한 속성에 대입 기능을 구현할 수 있다.
+
+```rb
+class BookInStock
+  attr_reader :isbn, :price
+
+  def initialize(isbn, price)
+    @isbn = isbn
+    @price = Float(price)
+  end
+
+  def price=(new_price)
+    @price = new_price
+  end
+end
+```
+
+- 루비에서는 이러한 대입 메서드를 만드는 간단한 표현을 제공한다. 값을 대입하는 메서드만 만들고 싶다면 `attr_writer`를 사용하면 된다.
+- 일반적으로 인스턴스 변수의 값을 속성으로 읽는 것과 대입하는 것 모두 필요로 한다.
+  - 루비는 이를 위해 메서드들을 한 번에 정의해주는 `attr_accessor` 메서드를 제공한다.
+
+```rb
+class BookInStock
+  attr_reader :isbn
+  attr_accessor :price
+
+  def initialize(isbn, price)
+    @isbn = isbn
+    @price = Float(price)
+  end
+end
+```
+
+### 가상 속성
+
+속성에 접근하는 메서드가 단지 객체의 인스턴스 변수를 읽거나 대입하는 간단한 메서드일 필요는 없다.
+
+```rb
+class BookInStock
+  attr_reader :isbn
+  attr_accessor :price
+
+  def initialize(isbn, price)
+    @isbn = isbn
+    @price = Float(price)
+  end
+
+  def price_int_cents
+    Integer(price*100 + 0.5)
+  end
+
+  def price_int_cents=(cents)
+    @price = cents / 100.0
+  end
+end
+
+book = BookInStock.new("isbn1", 33.80)
+puts book.price # 33.8
+puts book.price_in_cents # 3380
+book.price_in_cents = 1234
+puts book.price # 12.34
+puts book.price_in_cents # 1234
+```
+
+### 변수
+
+- 클래스에서는 다양한 변수들을 사용할 수 있다.
+
+#### 인스턴스 변수
+
+- 인스턴스 변수는 클래스 안에서 선언된 변수로 변수명은 `@`로 시작한다.
+
+```rb
+class Book
+  
+  def initialize
+    @title = 'Ruby'
+  end
+
+  def printTitle
+    puts @title
+  end
+end
+```
+
+#### 클래스 변수
+
+- 클래스 변수는 해당 클래스의 모든 객체(인스턴스)가 공유하며, 클래스 메서드를 통해 접근할 수 있다.
+- 클래스 변수는 `@@`으로 시작한다.
+- 클래스 변수는 사용하기 전에 반드시 **초기화**해야 한다.
+
+```rb 
+class Greeting
+  @@name = 'World'
+
+  def Greeting.hello
+    puts "Hello #{@@name}" 
+  end
+end
+
+Greeting.hello # Hello World
+```
+
+### 접근 제어
+
+```rb
+class MyClass
+  def merthod1 # 기본값을 public
+  end
+
+  protected # 이제부터 선언한 메서드는 모두 protected
+  
+  def method2
+  end
+
+  private # 이제부터 선언한 메서드는 모두 private
+
+  def method3
+  end
+
+  public # 이제부터 선언한 메서드는 모두 public
+
+  def method4
+  end 
+end
+
+class MyClass
+  def mehod1
+  end
+  # ...
+
+  public :method1, :method4
+  protected :method2
+  private :method3
+end
+```
+
+- 클래스에 너무 깊이 접근하도록 허용하면, 우리의 애플리케이션에서 각 요소 간의 결합도(coupling)가 높아질 우려가 있다.
+- 루비에서 객체 상태를 변경하는 방법은 메서드를 호출하는 것 뿐이다.
+  - 객체의 상태를 망가뜨릴 수 있는 메서드는 노출해서는 안 된다.
+
+#### public
+
+- public 메서드는 누구나 호출할 수 있다.
+- 아무런 접근 제어를 하지 안흔다.
+- 루비에서는 메서드는 기본적으로 `public`이다. (예외적으로 `initialize`는 `private`이다.)
+
+#### protected
+
+- 그 객체를 정의한 클래스와 하위 클래스에서만 호출할 수 있다.
+- 접근이 가계도상으로 제한되는 것이다.
+
+#### private
+
+- 이 메서드의 수신자는 항상 `self`이기 때문에 수신자를 지정해서 호출할 수 없다.
+- 즉, 다른 객체의 `private` 메서드에서는 접근할 수 없다.
+
+#### 루비와 다른 객체 지향 언어의 차이점
+
+- 접근 제어가 동적으로 결정된다는 것.
+  - 즉, 정적이 아니라 프로그램이 실행될 때 결정된다는 것이다.
+- 따라서, 접근 위반 예외는 제한된 메서드를 실제 호출할 그 순간에만 발생하게 된다.
+
+### 접근 제어를 활용한 예시
+
+```rb
+class Account
+  attr_accessor :balance
+  def initialize(balance)
+    @balance = balance
+  end
+end
+
+class Transaction
+  def initialize(account_a, account_b)
+    @account_a = account_a
+    @account_b = account_b
+  end
+
+  private
+
+  def debit(account, amount)
+    account.balance -= amount
+  end
+
+  def credit(account, amount)
+    account.balance += amount
+  end
+
+  public
+
+  def transfer(amount)
+    debit(@account_a, amount)
+    credit(@account_b, amoount)
+  end
+
+  #...
+end
+
+savings = Account.new(100)
+checking = Account.new(200)
+
+trans = Transaction.new(chekcing, savings)
+trans.transfer(50)
+```
+
+## 변수
+
+```rb
+person1 = "Tim"
+person2 = person1
+person1[0] = "J"
+person3 = person1.dup
+
+puts "person1 is #{person1}" # person3 is Jim
+puts "person2 is #{person2}" # person3 is Jim
+puts "person3 is #{person3}" # person3 is Tim
+```
+
+변수는 단지 객체에 대한 참조를 가지고 있을 뿐, 객체 자체를 담고 있지 않다는 사실을 확인할 수 있다.
+- `person1`을 `person2`에 대입해도 새로운 객체는 생성되지 않는다.
+- 단지 `person1` 객체에 대한 참조를 `person2`로 복사해서 person1과 person2가 같은 객체를 참조하도록 만들 뿐이다.
+
+# 컨테이너, 블록, 반복자
+
+## 배열
+
+```rb
+a = [1, 3, 5, 7, 9]
+a[2, 2] = "cat" # [1, 3, "cat", 9]
+a[2, 0] = "dot" # [1, 3, "dog", "cat", 9]
+a[1, 1] = [9, 8, 7] # [1, 9, 8, 7, "dog", "cat", 9]
+a[0..3] = [] # ["dog", "cat", 9]
+a[5..6] = 99, 88 # ["dog", "cat", 9, nil, nil, 99, 88]
+a[3] = [1. 2] # ["dog", "cat", 9, [1, 2], nil, 99, 88]
+
+a.first # "dog"
+a.first(1) # ["dog"]
+a.last # 88
+a.last(1) # [88]
+```
+
+- Array 클래스는 객체 참조를 컬렉션으로 저장한다. 각 객체의 참조는 배열에서 하나의 위치를 차지하며 이 위치는 정수로 표현된다.
+  - 배열의 위치를 음이 아닌 정수로 지정하면 해당 위치의 객체를 반환하고 그 위치에 아무것도 없다면 `nil`을 반환한다.
+  - 음수로 위치를 지정하면 배열의 뒤에서부터 위치를 계산해 해당하는 위치의 값을 반환한다.
+
+## 해시
+
+```rb
+h = { :dog => 'canine', :cat => 'feline' }
+h = { dog: 'canine', cat: 'feline' }
+```
+
+- 배열은 정수를 인덱스로 사용하는 반면에, 해시의 인덱스로는 `심벌`, `문자열`, `정규 표현식`, 심지어는 어떤 객체라도 사용할 수 있따.
+- 해시에 하나의 값을 저장하고자 할 때 두 개의 객체가 필요하다.
+  - 하나는 인덱스로 키와 하나는 이 키에 대응하는 값이다.
+
+### 해시와 배열을 사용한 단어 출현 빈도 계산
+
+```rb
+def words_from_stirng(string)
+  string.downcase.scan(/[\w']+/)
+end
+
+def count_frequency(word_list)
+  counts = Hash.new(0) # default: 0
+  for word in word_list
+    counts[word] += 1
+  end
+  counts
+end
+
+words = words_from_stirng("But I I I didn't didn't inhale, he said (emphatically) emphatically")
+words_frequecy = count_frequency(words)
+words_list = words_frequecy.sort_by {|key, count| count}
+
+p words_list
+```
+
+## 블록과 반복자
+
+```rb
+for i in 0..4
+  print i # 01234
+end
+
+words_list.each do |word, count|
+  puts "#{word}: #{count}"
+end
+
+words_list.each { |word, count| puts "#{word}: #{count}" }
+```
+
+- 코드 블록을 통해 더 간결한 코드를 작성할 수도 있다.
+
+### 반복자 구현하기
+
+```rb
+def fib_upt_to(max)
+  i1, i2 = 1, 1 # 병렬 대입
+  while i1 <= max
+    yield i1
+    i1, i2 = i2, i1 + i2
+  end
+end
+
+fib_upt_to(1000) { |f| print f, " " } # 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 987
+
+class Array
+  def find
+    each do |value|
+      return value if yield(value)
+    end
+  end
+end
+
+puts [1, 3, 5, 6, 7, 9].find {|v| v*v > 30} # 7
+```
+
+### 열거자(Enumerable)
+
+```rb
+a = [1, 3, "cat"]
+h= { dog: "canine", fox: "vulpine" }
+
+enum_a = a.to_enum
+enum_h = h.to_enum
+
+enum_a.next # 1
+enum_h.next # [:dog, "canine"]
+enum_a.next # 3
+enum_h.next # [:fox, "vulpine"]
+```
+
+- `to_enum` 메서드를 호출하여 루비의 내장 `Enumerator` 객체를 생성할 수 있다.
+- 루비에서는 반복자가 컬렉션 내부에 있고, 새로운 값을 위해 **매번 yield**를 호출한다.
+- 반복자를 이용하는 주체는 바로 메서드에 결합된 블록이다.
+
+### 객체로서의 블록
+
+```rb
+class ProcExample
+  def pass_in_block(&action)
+    @stored_proc = action
+  end
+  def use_proc(parameter)
+    @stored_proc.call(parameter)
+  end
+end
+
+eg = ProcExample.new
+eg.pass_in_block { |param| puts "The parameter is #{param}" }
+eg.use_proc(99) # The parameter is 99
+```
+
+- 블록은 객체로 변환할 수 있으며, 이 객체를 변수에 저장할 수 있고, 어딘가에 넘겨줄 수도 있으며, 나중에 호출할 수도 있다.
+- 매개변수로도 사용할 수도 있다.
+- 메서드를 정의할 때 마지막 매개 변수에 앰퍼센드(`&`)를 접두사로 붙이면 루비는 이 메서드가 호출될 때마다 코드 블록이 넘겨졌는지 찾아본다.
+- 위 인스턴스 메서드에서 Proc 객체를 생성하고이를 인스턴스 변수에 저장하고, 다른 인스턴스 메서드에서 이를 호출하는 예제이다.
+  - `proc` 객체에 대해 `call` 메서드를 호출함으로써 원래의 블록을 호출한다는 점에 주의할 필요가 있다!!
+  - 많은 루비 프로그래머들이 이러한 방식으로 블록을 변수에 저장하며 이후에 다시 호출한다.
+- 루비에서는 블록을 객체로 변환하는 내장 메서드를 두 가지 `lambda`와 `Proc.new` 두 가지를 지원한다.
 
 ---
 ---
