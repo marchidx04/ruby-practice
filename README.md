@@ -744,6 +744,433 @@ proc1.cal(1, 2, 3, 4) { puts "in block2" }
 # in block2
 ```
 
+## 기능 공유하기: 상속, 모듈, 믹스인
+
+### 상속과 메시지
+
+```rb
+class Parent
+  def say_hello
+    puts "Hello from #{self}"
+  end
+end
+
+p = Parent.new
+p.say_hello
+
+# 자식 클래스 생성
+class Child < Parent
+end
+
+c = Child.new # Hello from #<Parent:0x007fcd59034c78>
+c.say_hello # Hello from #<Child:0x007fcd59034908>
+
+p Child.superclass # Parent
+p Parent.superclass # Object
+p Object.superclass # BasicObject
+p BasicObject.superclass # nil
+```
+
+- BasicObject은 루비의 클래스 상속 구조에서 뿌리에 해당한다.
+  - 루비 애플리케이션의 어떤 객체라도 부모의 부모의 부모의 뿌리를 찾아가다 보면 결국에는 BasicObject에 이른다.
+- 이렇게 루비는 자기 자신에 정의되어 있지 않은 메서드를 자신의 부모 클래스에서 찾고,
+  - 이렇게 부모 클래스가 더 이상 없을 때까지 메서드를 찾아나간다.
+
+#### to_s 오버라이드
+
+```rb
+class Person
+  def initialize(name)
+    @name = name
+  end
+
+  def to_s
+    "Person named #{@name}"
+  end
+end
+
+p = Person.new("Michael")
+puts p # Person named Michael
+```
+
+- puts 메서드는 인자에 대해 `to_s` 메서드를 호출한다.
+- Person 클래스에 `to_s` 메서드가 없다면 루비는 Person의 부모 클래스인 Object에서 `to_s` 메서드를 찾는다.
+- 루비 온 레일스를 사용한다면
+  - 자신만의 컨트롤러 클래스들을 정의하기 위해 ActionController를 상속할 것이다.
+  - 이를 통해 자신의 컨트롤러에서 ActionController의 모든 기능을 사용할 수 있으며
+  - 추가적으로 사용자의 요청에 대응할 수 있는 고유의 핸들러를 정의할 수 있다.
+
+### 모듈
+
+모듈은 메서드와 클래스, 상수를 함께 하나로 묶는 수단이다.
+모듈의 장점
+- 모듈은 이름 공간(namespace)을 제공해서 이름이 충돌하는 것을 막아준다.
+- 모듈은 믹스인(mixin) 기능을 구현하는데 사용한다.
+
+#### 믹스인
+
+이를 이요하면 많은 경우 다중 상속을 할 필요가 사라진다.
+
+```rb
+module Debug
+  def who_am_i?
+    "#{self.class.name} (id: #{self.object_id}: #{self.name})"
+  end
+end
+
+class Phonograph
+  include Debug
+  attr_reader :name
+
+  def initialize(name)
+    @name = name
+  end
+end
+
+class EightTrack
+  include Debug
+  attr_reader :name
+
+  def initialize(name)
+    @name = name
+  end
+end
+
+ph = Phonograph.new("West End Blues")
+et = EightTrack.new("Surrealistic Pillow")
+
+ph.who_am_i? # Phonograph (id: 60: West End Blues)
+et.who_am_i? # EightTrack (id: 80: Surrealistic Pillow)
+```
+
+- Debug 모듈을 포함함으로써 Phonograph와 EightTrack 둘 다 `who_am_i?` 메서드를 이용할 수 있게 되었다.
+- 여러 클래스가 하나의 모듈을 포함한다면 이 클래들은 모두 같은 모듈을 참조하게 된다.
+  - 모듈의 메서드 정의를 수정한다면, 이 모듈을 포함하는 모든 클래스는 새로이 정의된 방식으로 동작할 것이다.
+
+#### Comparable 믹스인
+
+```rb
+class Person
+  include Comparable
+  attr_reader :name
+
+  def initialize(name)
+    @name = name
+  end
+
+  def to_s
+    "#{@name}"
+  end
+
+  def <=>(other)
+    self.name <=> other.name
+  end
+end
+
+p1 = Person.new("Matz")
+p2 = Person.new("Guido")
+p3 = Person.new("Larry")
+
+# 이름 비교
+if p1 > p2
+  puts "#{p1.name}'s name > #{p2.name} name"
+end
+
+# Person 객체들의 배열 정렬
+puts [p1, p2, p3].sort
+
+# 결과
+# Matz's name > Guido's name
+# Guido
+# Larry
+# Matz
+```
+
+- Comparable 모듈 include하고 `<=>` 연산자가 정의되어 있으면 여섯 개의 비교 함수를 얻을 수 있다.
+- 이를 통해 p1 > p2와 같은 비교가 가능해지고, Person 객체들을 순서대로 정렬하는 것도 가능해진다.
+
+#### Enumerable 모듈
+
+- Enumerable은 표준 믹스인으로 include하는 클래스의 each 메서드를 사용해 다양한 메서드를 구현할 수 있다.
+- Enumerable에 정의된 메서드로는 inject 메서드가 있다.
+  - inject 메서드는 컬렉션 맨 앞의 두 개의 요소에 대해 함수나 계산을 실행하고 그 결과를 가지고 세 번쨰 요소에 대해 다시 같은 연산을 실행하고, 이러한 과정을 컬렉션의 모든 요소에 대해 실행한다.
+
+```rb
+class VowelFinder
+  include Enumerable
+
+  def initialize(string)
+    @string = string
+  end
+
+  def each
+    @string.scan(/[aeiou]/) do |vowel|
+      yield vowel
+    end
+  end
+end
+
+vf = VowelFinder.new("the quick brown fox jumped")
+p vf.inject(:+) # "euiooue"
+```
+
+## 메서드
+
+### 메서드 예시
+
+```rb
+1.even? # false
+2.even? # true
+1.instance_of?(Fixnum) # true
+```
+
+- True나 False를 반환하는 메서드에는 이름 끝에 `?`를 붙이곤 한다.
+- '위험'하거나 수신자의 값을 바꿔버리는 메서드는 이름이 느낌표(!)로 끝나기도 한다.
+
+### 가변 인자 리스트
+
+```rb
+def varargs(arg1, *rest)
+  "arg1=#{arg1}. rest=#{rest.inspect}"
+end
+
+varargs("one", "two", "three") # arg1=one. rest=["two", "three"]
+```
+
+- 개수가 정해지지 않은 가변 매개 변수를 전달하고 싶거나 하나의 매개 변수로 여러 개의 매개 변수를 모두 처리하고 싶을 때 별표(`*`)로 처리할 수 있다.
+- 가변 길이 매개 변수는 매개 변수 리스트이 어디에나 올 수 있다.
+  ```rb
+  def split_apart(first, *splat, last)
+    puts "First: #{first.inspect}, splat: #{splat.inspect}, last: #{last.inspect}"
+  end
+
+  split_apart(1, 2, 3, 4) # First: 1, splat: [2, 3], last: 4
+  ```
+
+### 메서드와 블록
+
+```rb
+class TaxCalculator
+  def initialize(name, &block)
+    @name, @block = name, block
+  end
+
+  def get_tax(amount)
+    "#@name on #{amount} = #{ @block.call(amount) }"
+  end
+end
+
+tc = TaxCalculator.new("Sales tax") { |amt| amt * 0.075 }
+tc.get_tax(100) # "Sales tax on 100 = 7.5"
+tc.get_tax(250) # "Sales tax on 250 = 18.75"
+```
+
+- 마지막 매개 변수 앞에 앰퍼샌드(`&`)를 붙여주면 주어진 블록이 Proc 객체로 변한된다.
+- 이 객체를 마지막 매개 변수(블록매개 변수)에 대입하면, 이를 통해 나중에 사용할 수 있다.
+
+### 블록을 더 동적으로 사용하기
+
+```rb
+print "(t)imes o r(p)lus: "
+operator = gets
+print "number: "
+number = Integer(gets)
+if operator =~ /^t/
+  calc = lambda { |n| n * number }
+else
+  calc = lambda { |n| n + number }
+end
+puts (1..10).collect(&calc).join(", ")
+
+# (t)imes or (p)lus: t
+# number: 2
+# 2, 4, 6, 8, 10, 12, 14, 16, 18, 20
+```
+
+- 메서드의 마지막 매개 변수 앞에애퍼샌드(`&`)를 붙이면, 루비는 이 매개 변수를 Proc 객체로 간주한다.
+- Proc 객체를 매개 변수 리스트에서 뺴내서이를 블록으로 변환한 다음 메서드에 결합하는 식으로 처리한다.
+
+## 연산자
+
+### 연산자 표현식
+
+```rb
+a = [1, 2, 3]
+p a << 4 # [1, 2, 3, 4]
+
+class ScoreKeeper
+  def initialize
+    @total_score = @count = 0
+  end
+
+  def <<(score)
+    @total_score += score
+    @count += 1
+    self
+  end
+
+  def average
+    fail "No scores" if @count.zero?
+    Float(@total_score) / @count
+  end
+end
+
+score = ScoreKeeper.new
+score << 10 << 20 << 40
+puts "Average = #{score.average}" # Average = 23.0
+```
+
+- 우리가 작성한 클래스를 마치 내장 객체인 것처럼 연산자 표현식의 일부로 쓸 수 있다.
+- `<<` 메서드가 명시적으로 `self`를 반환한다.
+  - 이렇게 한 이유는 `score << 10 << 20 << 40` 같이 연쇄적으로 메서드를 사용할 수 있도록 함이다.
+
+### 병렬 대입
+
+```rb
+int a = 1
+int b = 2
+c, d = 1, 2 # c=1, d=2
+d, c = c, d # d=1, c=2
+```
+
+- 루비에서는 우변값(대입의 오른쪽에 오는 값)에 쉼표로 구분되는 목록을 지정할 수 있다.
+
+### 중첩 대입
+
+```rb
+a, (b, c), d = 1, 2, 3, 4 # a=1 , b=2 , c=nil , d=3
+a, (b, c), d = [1, 2, 3, 4] # a=1 , b=2 , c=nil , d=3
+a, (b, c), d = 1, [2, 3], 4 # a=1 , b=2 , c=3 , d=4
+a, (b, c), d = 1, [2, 3, 4], 5 # a=1 , b=2 , c=3 , d=5
+a, (b, *c), d = 1, [2, 3, 4], 5 # a=1 , b=2 , c=[3, 4] , d=5
+```
+
+- 대입문의 좌변에 괄호로 둘러싸인 목록을 둘 수 있다.
+- 루비는 이 목록을 중첩 대입문으로 인식하여 대응되는 우변값을 추출해서 괄호로 둘러싸인 부분에 대입한다.
+
+### 조건적 실행
+
+#### and, or, not
+
+```rb
+nil && 99 # nil
+false && 99 # false
+"cat" && 99 # 99
+```
+
+- 루비는 모든 표준 논리 연산자를 지원한다.
+- and와 &&는 첫 번째 피연산자가 false이면 첫 번째 피연산자를 그대로 반환한다.
+  - 그 이외에는 두 번쨰 피연산자를 평가하고 그 값을 반환한다.
+- or과 ||는 모두 피연산자들이 모두 참일 때마 참을 반환한다.
+  - 첫 번쨰 피연산자가 거짓이면 두 번쨰 피연산자를 평가하고 그 결과를 반환한다.
+
+## 예외 처리
+
+### Exception 클래스
+
+예외에 대한 정보를 가진 것은 `Exception` 클래스 또는 그 자식 클래스의 객체다. 다음은 예외 처리에 대한 계보다.
+
+```
+Exception
+  NoMemoryError
+  ScriptError
+    LoadError 
+      Gem::LoadError
+    NotImplementedError
+    SyntaxError
+  SecurityError
+  SignalException
+    Interrupt
+  StandardError
+    ArgumentError
+      Gem::Requirement::BadRequirementError
+    EncodingError
+      Encoding::CompatibilityError
+      Encoding::ConverterNotFoundError
+      Encoding::InvalidByteSequenceError
+      Encoding::UndefinedConversionError
+    FiberError
+    IndexError
+      KeyError
+      StopInteration
+    IOError
+      EOFError
+    LocalJumpError
+    Math::DomainError
+    NameError
+      NotMethodError
+    RangeError
+      FloatDomainError
+    RegexpError
+      Gem::Exception
+    RuntimeError
+      Gem::Exception
+    SystemCallError
+    ThreadError
+    TypeError
+    ZeroDivisionError
+  SystemExit
+    Gem::SystemExitException
+  SystemStackError
+```
+
+### 예외 처리하기
+
+```rb
+begin
+  eval string
+rescue SyntaxError, NameError => boom
+  print "String doesn't compile: #{boom}" # boom.class <= NameError
+rescue StandardError => bang
+  print "Error running script: #{bang}"
+end
+
+# String doesn't compile: undefined local variable or method `string' for main:Object
+# Did you mean?  String
+```
+
+- case 구문이 동작하는 방식과 비슷하다.
+  - begin 블록의 rescue 절에 대해 하나씩 차례로 발생된 예외와 rescue의 매개 변수를 비교한다.
+  - 그 매개 변수에 해당한다면 그 부분을 실행하고 탐색을 멈춘다.
+- 대부분의 예외에서는 rescue 절에 지정한 예외가 발생한 예외와 같거나 그 상위 클래스일 경우에 참을 반환한다.
+  - `rescue` 절에 아무런 매개변수 없이 쓴다면, 매개 변수의 기본값은 `StandardError`가 된다.
+- 적절한 `rescue` 구문을 찾을 수 없거나, 예외가 `begin/end` 블록 바깥에서 발생한 경우에는 스택을 거슬러 올라가서 호출자에서 예외 처리 구문을 찾는다.
+
+
+### 말끔히 치우기
+
+```rb
+f = File.open("testfile")
+begin
+  # .. 프로세스
+rescue
+  # .. 에러 처리
+ensure
+  f.close
+end
+```
+
+- 예외가 발생했건 하지 않았건 코드 블록의 끝부분에 특정 작업을 반드시 실행해야 하는 경우가 있다.
+  - ex) 블록을 시작할 때 파일을 열었다면 블록이 끝나면 파일이 닫힌다는 사실을 보장해야 한다.
+- `rescue` 절 뒤에 `ensure` 절을 사용하면 블록이 끝날 때 반드시 실행되어야 하는 코드를 작성할 수 있다.
+  - 블록이 정상적으로 종료되건, 예외가 발생하고 rescue되건, 처리되지 않은 예외에 의해 종료되건 간에 상관없이 `ensure` 블록을 실행된다.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ---
 ---
 ---
